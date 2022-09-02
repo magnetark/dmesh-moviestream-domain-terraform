@@ -1,0 +1,12 @@
+{
+    "rules": [{
+        "object-locator": {
+            "schema-name": "public",
+            "table-name": "%"
+        },
+        "rule-action": "include",
+        "rule-id": "1",
+        "rule-name": "1",
+        "rule-type": "selection"
+    }]
+}
