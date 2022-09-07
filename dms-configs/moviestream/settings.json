@@ -2,10 +2,10 @@
     "TargetMetadata": {
         "TargetSchema": "",
         "SupportLobs": true,
-        "FullLobMode": false,
+        "FullLobMode": true,
         "LobChunkSize": 64,
-        "LimitedSizeLobMode": true,
-        "LobMaxSize": 32,
+        "LimitedSizeLobMode": false,
+        "LobMaxSize": 500,
         "InlineLobMaxSize": 0,
         "LoadMaxFileSize": 0,
         "ParallelLoadThreads": 0,

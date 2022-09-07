@@ -68,12 +68,12 @@ module "database_migration_service" {
       engine_name   = "kinesis"
 
       kinesis_settings = {
-        include_control_details        = true
+        include_control_details        = false
         include_null_and_empty         = true
         include_partition_value        = true
         include_table_alter_operations = true
         include_transaction_details    = true
-        message_format                 = "json"
+        message_format                 = "json-unformatted" # "json"
         partition_include_schema_table = true
         service_access_role_arn        = aws_iam_role.dmsrole.arn
         stream_arn                     = aws_kinesis_stream.domain_stream_cdc1.arn
@@ -93,39 +93,6 @@ module "database_migration_service" {
       tags                      = { Task = "PostgreSQL-to-MySQL" }
     }
   }
-
-  #event_subscriptions = {
-  #  instance = {
-  #    name                             = "instance-events"
-  #    enabled                          = true
-  #    instance_event_subscription_keys = ["example"]
-  #    source_type                      = "replication-instance"
-  #    sns_topic_arn                    = "arn:aws:sns:us-east-1:012345678910:example-topic"
-  #    event_categories                 = [
-  #      "failure",
-  #      "creation",
-  #      "deletion",
-  #      "maintenance",
-  #      "failover",
-  #      "low storage",
-  #      "configuration change"
-  #    ]
-  #  }
-  #  task = {
-  #    name                         = "task-events"
-  #    enabled                      = true
-  #    task_event_subscription_keys = ["cdc_ex"]
-  #    source_type                  = "replication-task"
-  #    sns_topic_arn                = "arn:aws:sns:us-east-1:012345678910:example-topic"
-  #    event_categories             = [
-  #      "failure",
-  #      "state change",
-  #      "creation",
-  #      "deletion",
-  #      "configuration change"
-  #    ]
-  #  }
-  #}
 
   tags = merge(var.tags, local.tags, { Name = "vpc_moviestream_domain", Terraform = "true" })
 }

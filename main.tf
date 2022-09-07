@@ -77,7 +77,7 @@ resource "aws_kinesis_stream" "domain_stream_cdc1" {
 # -----------------------------
 
 resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream" {
-  name        = "terraform-kinesis-firehose-extended-s3-test-stream"
+  name        = "${var.dominio}-kinesis-firehose-extended-s3"
   destination = "extended_s3"
 
   kinesis_source_configuration{
@@ -88,13 +88,35 @@ resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream" {
   extended_s3_configuration {
     role_arn   = aws_iam_role.firehoserole.arn
     bucket_arn = aws_s3_bucket.raw.arn
+    buffer_size = 64 # 5 64
+    buffer_interval = 60
 
     # Example prefix using partitionKeyFromQuery, applicable to JQ processor
-    # prefix              = "data/customer_id=!{partitionKeyFromQuery:customer_id}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
-    # error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
+    prefix              = "data/table=!{partitionKeyFromLambda:table}/userid=!{partitionKeyFromLambda:userid}/year=!{partitionKeyFromLambda:year}/month=!{partitionKeyFromLambda:month}/date=!{partitionKeyFromLambda:date}/hour=!{partitionKeyFromLambda:hour}/"
+    error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
+
+    processing_configuration {
+      enabled = "true"
+
+      processors {
+        type = "Lambda"
+        
+        parameters {
+          parameter_name  = "LambdaArn"
+          parameter_value = "${aws_lambda_function.lambda_firehose_processor.arn}:$LATEST"
+        }
+      }
+    }
+
+    dynamic_partitioning_configuration {
+      enabled = true 
+    }
 
     # https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning.html
-    # buffer_size = 64
+    # Example prefix using partitionKeyFromQuery, applicable to JQ processor
+    # prefix              = "data/movieId=!{partitionKeyFromQuery:movieId}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
+    # error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
+
     # processing_configuration {
     #   enabled = "true"
 
@@ -107,12 +129,12 @@ resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream" {
     #     }
     #   }
 
-    #   # New line delimiter processor example
+    #   New line delimiter processor example
     #   processors {
     #     type = "AppendDelimiterToRecord"
     #   }
 
-    #   # JQ processor example
+    #   JQ processor example
     #   processors {
     #     type = "MetadataExtraction"
     #     parameters {
@@ -121,11 +143,20 @@ resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream" {
     #     }
     #     parameters {
     #       parameter_name  = "MetadataExtractionQuery"
-    #       parameter_value = "{customer_id:.customer_id}"
+    #       parameter_value = "{movieId:.movieId}"
     #     }
     #   }
     # }
   }
+}
+
+resource "aws_lambda_function" "lambda_firehose_processor" {
+  filename      = "lambda-firehose/code.zip" #
+  function_name = "firehose_lambda_processor"
+  role          = aws_iam_role.lambda_firehose_kinesis.arn
+  handler       = "lambda_function.lambda_handler" # 
+  runtime       = "python3.8"
+  timeout       = 60
 }
 
 # -----------------------------
@@ -154,6 +185,62 @@ resource "aws_s3_bucket" "products" {
   tags = {
     Name = "${var.dominio}-dmesh-raw-bucket"
   }
+}
+
+# -----------------------------
+# GLUE CRAWLER
+# -----------------------------
+
+resource "aws_glue_catalog_database" "aws_glue_catalog_database" {
+  name = "${var.dominio}-catalog-database"
+}
+
+resource "aws_glue_crawler" "events_crawler" {
+  database_name = aws_glue_catalog_database.aws_glue_catalog_database.name
+  name          = "${var.dominio}-raw-data"
+  role          = aws_iam_role.glue_crawler.arn
+
+  configuration = jsonencode(
+    {
+      Grouping = {
+        TableGroupingPolicy = "CombineCompatibleSchemas"
+      }
+      CrawlerOutput = {
+        Partitions = { AddOrUpdateBehavior = "InheritFromTable" }
+      }
+      Version = 1
+    }
+  )
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.raw.bucket}"
+  }
+
+  tags = var.tags
+}
+
+resource "aws_glue_crawler" "events_crawler_products" {
+  database_name = aws_glue_catalog_database.aws_glue_catalog_database.name
+  name          = "${var.dominio}-products-data"
+  role          = aws_iam_role.glue_crawler.arn
+
+  configuration = jsonencode(
+    {
+      Grouping = {
+        TableGroupingPolicy = "CombineCompatibleSchemas"
+      }
+      CrawlerOutput = {
+        Partitions = { AddOrUpdateBehavior = "InheritFromTable" }
+      }
+      Version = 1
+    }
+  )
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.products.bucket}"
+  }
+
+  tags = var.tags
 }
 
 # -----------------------------
