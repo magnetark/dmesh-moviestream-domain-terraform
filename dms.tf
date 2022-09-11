@@ -35,7 +35,7 @@ module "database_migration_service" {
   repl_subnet_group_subnet_ids  = module.vpc.public_subnets 
 
   repl_instance_id                           = "${local.cdc1_name}-replication"
-  repl_instance_class                        = "dms.t3.small"
+  repl_instance_class                        = "dms.t3.medium"
   repl_instance_allocated_storage            = 64
   repl_instance_multi_az                     = false
   repl_instance_vpc_security_group_ids       = [aws_security_group.dms_sg.id]

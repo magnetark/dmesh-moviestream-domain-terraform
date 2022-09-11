@@ -91,26 +91,26 @@ resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream" {
     buffer_size = 64 # 5 64
     buffer_interval = 60
 
-    # Example prefix using partitionKeyFromQuery, applicable to JQ processor
-    prefix              = "data/table=!{partitionKeyFromLambda:table}/userid=!{partitionKeyFromLambda:userid}/year=!{partitionKeyFromLambda:year}/month=!{partitionKeyFromLambda:month}/date=!{partitionKeyFromLambda:date}/hour=!{partitionKeyFromLambda:hour}/"
-    error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
+    # # Example prefix using partitionKeyFromQuery, applicable to JQ processor
+    # prefix              = "data/table=!{partitionKeyFromLambda:table}/userid=!{partitionKeyFromLambda:userid}/year=!{partitionKeyFromLambda:year}/month=!{partitionKeyFromLambda:month}/date=!{partitionKeyFromLambda:date}/hour=!{partitionKeyFromLambda:hour}/"
+    # error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
 
-    processing_configuration {
-      enabled = "true"
+    # processing_configuration {
+    #   enabled = "true"
 
-      processors {
-        type = "Lambda"
+    #   processors {
+    #     type = "Lambda"
         
-        parameters {
-          parameter_name  = "LambdaArn"
-          parameter_value = "${aws_lambda_function.lambda_firehose_processor.arn}:$LATEST"
-        }
-      }
-    }
+    #     parameters {
+    #       parameter_name  = "LambdaArn"
+    #       parameter_value = "${aws_lambda_function.lambda_firehose_processor.arn}:$LATEST"
+    #     }
+    #   }
+    # }
 
-    dynamic_partitioning_configuration {
-      enabled = true 
-    }
+    # dynamic_partitioning_configuration {
+    #   enabled = true 
+    # }
 
     # https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning.html
     # Example prefix using partitionKeyFromQuery, applicable to JQ processor
