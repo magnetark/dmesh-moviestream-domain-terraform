@@ -1,6 +1,6 @@
 
 # --------------------------------
-# DMS MIGRATION (See ./dms/dms.tf)
+# DMS MIGRATION (See ./dms.tf)
 # --------------------------------
 
 # -------------------------
@@ -19,6 +19,7 @@ module "vpc" {
   enable_vpn_gateway = false
   enable_dns_hostnames = true
   enable_dns_support   = true
+  create_igw = true
 
   tags = merge(var.tags, { Name = "vpc_moviestream_domain" })
 }
@@ -72,6 +73,20 @@ resource "aws_kinesis_stream" "domain_stream_cdc1" {
   }
 }
 
+resource "aws_vpc_endpoint" "ec2" {
+  vpc_id            = module.vpc.vpc_id
+  service_name      = "com.amazonaws.us-east-1.kinesis-streams"
+  vpc_endpoint_type = "Interface"
+
+  subnet_ids = module.vpc.public_subnets 
+
+  security_group_ids = [
+    aws_security_group.dms_sg.id,
+  ]
+
+  private_dns_enabled = true
+}
+
 # -----------------------------
 # KINESIS FIREHOSE
 # -----------------------------
@@ -91,7 +106,6 @@ resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream" {
     buffer_size = 64 # 5 64
     buffer_interval = 60
 
-    # # Example prefix using partitionKeyFromQuery, applicable to JQ processor
     # prefix              = "data/table=!{partitionKeyFromLambda:table}/userid=!{partitionKeyFromLambda:userid}/year=!{partitionKeyFromLambda:year}/month=!{partitionKeyFromLambda:month}/date=!{partitionKeyFromLambda:date}/hour=!{partitionKeyFromLambda:hour}/"
     # error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
 
