@@ -106,61 +106,61 @@ resource "aws_kinesis_firehose_delivery_stream" "extended_s3_stream" {
     buffer_size = 64 # 5 64
     buffer_interval = 60
 
-    # prefix              = "data/table=!{partitionKeyFromLambda:table}/userid=!{partitionKeyFromLambda:userid}/year=!{partitionKeyFromLambda:year}/month=!{partitionKeyFromLambda:month}/date=!{partitionKeyFromLambda:date}/hour=!{partitionKeyFromLambda:hour}/"
-    # error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
+    dynamic_partitioning_configuration {
+      enabled = true 
+    }
 
-    # processing_configuration {
-    #   enabled = "true"
+    prefix              = "db/schema=!{partitionKeyFromLambda:schema}/table=!{partitionKeyFromLambda:table}/year=!{partitionKeyFromLambda:year}/month=!{partitionKeyFromLambda:month}/date=!{partitionKeyFromLambda:date}/hour=!{partitionKeyFromLambda:hour}/"
+    error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
 
-    #   processors {
-    #     type = "Lambda"
+    processing_configuration {
+      enabled = "true"
+
+      processors {
+        type = "Lambda"
         
-    #     parameters {
-    #       parameter_name  = "LambdaArn"
-    #       parameter_value = "${aws_lambda_function.lambda_firehose_processor.arn}:$LATEST"
-    #     }
-    #   }
-    # }
+        parameters {
+          parameter_name  = "LambdaArn"
+          parameter_value = "${aws_lambda_function.lambda_firehose_processor.arn}:$LATEST"
+        }
+      }
+    }
 
-    # dynamic_partitioning_configuration {
-    #   enabled = true 
-    # }
+    ## https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning.html
+    ## Example prefix using partitionKeyFromQuery, applicable to JQ processor
+    ## prefix              = "data/movieId=!{partitionKeyFromQuery:movieId}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
+    ## error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
 
-    # https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning.html
-    # Example prefix using partitionKeyFromQuery, applicable to JQ processor
-    # prefix              = "data/movieId=!{partitionKeyFromQuery:movieId}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
-    # error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
+    ## processing_configuration {
+    ##   enabled = "true"
 
-    # processing_configuration {
-    #   enabled = "true"
+    ##   # Multi-record deaggregation processor example
+    ##   processors {
+    ##     type = "RecordDeAggregation"
+    ##     parameters {
+    ##       parameter_name  = "SubRecordType"
+    ##       parameter_value = "JSON"
+    ##     }
+    ##   }
 
-    #   # Multi-record deaggregation processor example
-    #   processors {
-    #     type = "RecordDeAggregation"
-    #     parameters {
-    #       parameter_name  = "SubRecordType"
-    #       parameter_value = "JSON"
-    #     }
-    #   }
+    ##   New line delimiter processor example
+    ##   processors {
+    ##     type = "AppendDelimiterToRecord"
+    ##   }
 
-    #   New line delimiter processor example
-    #   processors {
-    #     type = "AppendDelimiterToRecord"
-    #   }
-
-    #   JQ processor example
-    #   processors {
-    #     type = "MetadataExtraction"
-    #     parameters {
-    #       parameter_name  = "JsonParsingEngine"
-    #       parameter_value = "JQ-1.6"
-    #     }
-    #     parameters {
-    #       parameter_name  = "MetadataExtractionQuery"
-    #       parameter_value = "{movieId:.movieId}"
-    #     }
-    #   }
-    # }
+    ##   JQ processor example
+    ##   processors {
+    ##     type = "MetadataExtraction"
+    ##     parameters {
+    ##       parameter_name  = "JsonParsingEngine"
+    ##       parameter_value = "JQ-1.6"
+    ##     }
+    ##     parameters {
+    ##       parameter_name  = "MetadataExtractionQuery"
+    ##       parameter_value = "{movieId:.movieId}"
+    ##     }
+    ##   }
+    ## }
   }
 }
 
@@ -179,25 +179,33 @@ resource "aws_lambda_function" "lambda_firehose_processor" {
 
 resource "aws_s3_bucket" "raw" {
   bucket = "${var.dominio}-dmesh-raw-bucket"
-  force_destroy = true #@WARNING
+  force_destroy = true # @WARNING: This configuration could be hazardous to your deploymen in a production environment.
   tags = {
-    Name = "${var.dominio}-dmesh-raw-bucket"
+    Name = "${var.dominio}-dmesh-raw"
   }
 }
 
 resource "aws_s3_bucket" "stage" {
   bucket = "${var.dominio}-dmesh-stage-bucket"
-  force_destroy = true #@WARNING
+  force_destroy = true # @WARNING: This configuration could be hazardous to your deploymen in a production environment.
   tags = {
-    Name = "${var.dominio}-dmesh-raw-bucket"
+    Name = "${var.dominio}-dmesh-stage"
   }
 }
 
 resource "aws_s3_bucket" "products" {
   bucket = "${var.dominio}-dmesh-products-bucket"
-  force_destroy = true #@WARNING
+  force_destroy = true # @WARNING: This configuration could be hazardous to your deploymen in a production environment.
   tags = {
-    Name = "${var.dominio}-dmesh-raw-bucket"
+    Name = "${var.dominio}-dmesh-raw"
+  }
+}
+
+resource "aws_s3_bucket" "athena_results" {
+  bucket = "${var.dominio}-athena-query-results"
+  force_destroy = true # @WARNING: This configuration could be hazardous to your deploymen in a production environment.
+  tags = {
+    Name = "${var.dominio}-athena-query-results"
   }
 }
 
@@ -205,19 +213,20 @@ resource "aws_s3_bucket" "products" {
 # GLUE CRAWLER
 # -----------------------------
 
-resource "aws_glue_catalog_database" "aws_glue_catalog_database" {
-  name = "${var.dominio}-catalog-database"
-}
+# resource "aws_glue_catalog_database" "aws_glue_catalog_database" {
+#   name = "${var.dominio}-catalog-database"
+# }
 
-resource "aws_glue_crawler" "events_crawler" {
-  database_name = aws_glue_catalog_database.aws_glue_catalog_database.name
+resource "aws_glue_crawler" "crawler_raw" {
+  database_name = aws_athena_database.dmesh_athana_db.name
   name          = "${var.dominio}-raw-data"
   role          = aws_iam_role.glue_crawler.arn
 
   configuration = jsonencode(
     {
       Grouping = {
-        TableGroupingPolicy = "CombineCompatibleSchemas"
+        TableGroupingPolicy = "CombineCompatibleSchemas",
+        TableLevelConfiguration = 4
       }
       CrawlerOutput = {
         Partitions = { AddOrUpdateBehavior = "InheritFromTable" }
@@ -233,8 +242,8 @@ resource "aws_glue_crawler" "events_crawler" {
   tags = var.tags
 }
 
-resource "aws_glue_crawler" "events_crawler_products" {
-  database_name = aws_glue_catalog_database.aws_glue_catalog_database.name
+resource "aws_glue_crawler" "crawler_products" {
+  database_name = aws_athena_database.dmesh_athana_db.name
   name          = "${var.dominio}-products-data"
   role          = aws_iam_role.glue_crawler.arn
 
@@ -261,3 +270,14 @@ resource "aws_glue_crawler" "events_crawler_products" {
 # GLUE RT
 # -----------------------------
 
+
+
+# -----------------------------
+# ATHENA
+# -----------------------------
+
+resource "aws_athena_database" "dmesh_athana_db" {
+  name   = "${var.dominio}_database"
+  bucket = aws_s3_bucket.athena_results.bucket
+  force_destroy = true # @WARNING: This configuration could be hazardous to your deploymen in a production environment.
+}

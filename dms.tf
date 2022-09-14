@@ -10,17 +10,32 @@
 
 locals {
   cdc1_name = "moviestream"
-  cdc1_dbhost = "moviestream-postgres.cotjbywwuf3z.us-east-1.rds.amazonaws.com"
-  cdc1_dbname = "moviestreamdb"
-  cdc1_dbuser = "dbpostgresadmin"
-  cdc1_dbpass = "CHaNG3m3"
-  cdc1_dbport = 5432
   cdc1_dbengine = "postgres"
 
   tags = {
     module = "dms"
     repository = "https://github.com/terraform-aws-modules/terraform-aws-dms"
   }
+}
+
+data "aws_ssm_parameter" "dbhost" {
+  name = "/moviestream/dbhost"
+}
+
+data "aws_ssm_parameter" "dbport" {
+  name = "/moviestream/dbport"
+}
+
+data "aws_ssm_parameter" "dbuser" {
+  name = "/moviestream/dbuser"
+}
+
+data "aws_ssm_parameter" "dbpass" {
+  name = "/moviestream/dbpass"
+}
+
+data "aws_ssm_parameter" "dbname" {
+  name = "/moviestream/dbname"
 }
 
 # ------------------------------------
@@ -51,11 +66,11 @@ module "database_migration_service" {
       endpoint_id                 = "${local.cdc1_name}-endpoint-id" 
       endpoint_type               = "source"
       engine_name                 = local.cdc1_dbengine
-      server_name                 = local.cdc1_dbhost
-      username                    = local.cdc1_dbuser
-      password                    = local.cdc1_dbpass
-      port                        = local.cdc1_dbport
-      database_name               = local.cdc1_dbname
+      server_name                 = data.aws_ssm_parameter.dbhost.value
+      username                    = data.aws_ssm_parameter.dbuser.value 
+      password                    = data.aws_ssm_parameter.dbpass.value
+      port                        = data.aws_ssm_parameter.dbport.value
+      database_name               = data.aws_ssm_parameter.dbname.value
       extra_connection_attributes = ""
       ssl_mode                    = "none"
       tags                        = { EndpointType = "source" }

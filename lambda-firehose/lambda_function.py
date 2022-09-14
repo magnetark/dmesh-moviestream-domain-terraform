@@ -1,13 +1,14 @@
 # ------
 # LAMBDA
 # zip code.zip lambda_function.py
-# aws s3 cp code.zip s3://<s3-bucet-name>/v1/code.zip
-
-# # {'records':[
+## aws s3 cp code.zip s3://<s3-bucet-name>/v1/code.zip
+#
+# DATA SAMPLE
+# {'records':[
 #     {
 #     	'recordId': '49633053771318725182731865403139531158769665947818000386000000',
 #     	'approximateArrivalTimestamp': 1662499846395,
-#     	'data': {
+#     	'data': {  ---> payload
 #           "data":{
 #               "index":138756,
 #               "userId":6550,
@@ -48,30 +49,22 @@ import base64
 import datetime
 
 def lambda_handler(event, context):
-    print(event)
     firehose_records_output = {'records': []}
 
     for record in event['records']:
-
-        if 'data' in record.keys():
-            _payload = base64.b64decode(record['data'])
-            payload = json.loads(_payload)
-
-            event_timestamp = datetime.datetime.fromtimestamp(record['approximateArrivalTimestamp'] / 1000.0)
-
-            userid = "no-user-id"
-            if 'data' in payload.keys():
-                userid = payload["data"]['userId']
-
+        try:
+            payload = json.loads(base64.b64decode(record['data']))
+            event_timestamp = datetime.datetime.strptime(payload['metadata']["timestamp"], '%Y-%m-%dT%H:%M:%S.%fZ')
             partition_keys = {
-                    "table":record['kinesisRecordMetadata']["partitionKey"],
-                    "userid": userid,
-                    "year": event_timestamp.strftime('%Y'),
-                    "month": event_timestamp.strftime('%m'),
-                    "date": event_timestamp.strftime('%d'),
-                    "hour": event_timestamp.strftime('%H'),
-                    "minute": event_timestamp.strftime('%M')
-                }
+                "schema":payload['metadata']["schema-name"],
+                "table":payload['metadata']["table-name"],
+                "year": event_timestamp.strftime('%Y'),
+                "month": event_timestamp.strftime('%m'),
+                "date": event_timestamp.strftime('%d'),
+                "hour": event_timestamp.strftime('%H'),
+                "minute": event_timestamp.strftime('%M')
+            }
+            #event_timestamp = datetime.datetime.fromtimestamp(record['approximateArrivalTimestamp'] / 1000.0)
 
             record_output = {
                 'recordId': record['recordId'],
@@ -81,7 +74,8 @@ def lambda_handler(event, context):
                     'partitionKeys': partition_keys 
                 }
             }
-        else:
+        except Exception as e:
+            record["error"] = e
             record_output = {
                 'data':record,
                 'result': 'Ok',
