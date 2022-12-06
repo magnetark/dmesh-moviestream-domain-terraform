@@ -242,6 +242,30 @@ resource "aws_glue_crawler" "crawler_raw" {
   tags = var.tags
 }
 
+resource "aws_glue_crawler" "crawler_stage" {
+  database_name = aws_athena_database.dmesh_athana_db.name
+  name          = "${var.dominio}-stage-data"
+  role          = aws_iam_role.glue_crawler.arn
+
+  configuration = jsonencode(
+    {
+      Grouping = {
+        TableGroupingPolicy = "CombineCompatibleSchemas"
+      }
+      CrawlerOutput = {
+        Partitions = { AddOrUpdateBehavior = "InheritFromTable" }
+      }
+      Version = 1
+    }
+  )
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.stage.bucket}"
+  }
+
+  tags = var.tags
+}
+
 resource "aws_glue_crawler" "crawler_products" {
   database_name = aws_athena_database.dmesh_athana_db.name
   name          = "${var.dominio}-products-data"

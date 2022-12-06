@@ -81,7 +81,7 @@
         "RecoverableErrorThrottling": true,
         "RecoverableErrorThrottlingMax": 1800,
         "RecoverableErrorStopRetryAfterThrottlingMax": false,
-        "ApplyErrorDeletePolicy": "IGNORE_RECORD",
+        "ApplyErrorDeletePolicy": "LOG_ERROR",
         "ApplyErrorInsertPolicy": "LOG_ERROR",
         "ApplyErrorUpdatePolicy": "LOG_ERROR",
         "ApplyErrorEscalationPolicy": "LOG_ERROR",
